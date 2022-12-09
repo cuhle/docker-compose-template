@@ -1,0 +1,22 @@
+# version: "3.7"
+version: "3"
+
+services:
+  # Frontend
+  custom_nginx_app:
+    image: custom_nginx_app:latest
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.custom_nginx_app.rule=Host(`<WEBSITE URL>`) && PathPrefix(`/<ROUTE TO SERVICE>`)"
+      - "traefik.http.routers.custom_nginx_app.tls=true"
+    networks:
+      - web
+    restart: "${DOCKER_RESTART_POLICY:-unless-stopped}"
+    expose:
+      - 80
+
+
+networks:
+  web:
+    name: traefik_web
+    external: true

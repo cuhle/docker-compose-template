@@ -1,0 +1,69 @@
+version: '3'
+
+services:
+  traefik:
+    # The official v2 Traefik docker image
+    image: traefik:latest
+    container_name: traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - web
+    ports:
+      # The HTTP port
+      - "80:80"
+      - "443:443"
+    env_file:
+      - traefik.env # configure postgres
+    # Enables the web UI and tells Traefik to listen to docker
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.traefik.rule=Host(`<WEBSITE URL>`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))'
+      - 'traefik.http.routers.traefik.tls=true'
+      - 'traefik.http.routers.traefik.tls.certresolver=le'
+      - 'traefik.http.routers.traefik.service=api@internal'
+      - "traefik.http.routers.traefik.middlewares=auth"
+      # https://www.web2generators.com/apache-tools/htpasswd-generator
+      - "traefik.http.middlewares.auth.basicauth.users=dashboard:$apr1$uo15axrw$FF9FiTTiEXe3v322qlZkG1"
+      - 'traefik.http.services.api.loadbalancer.server.port=8080'
+      - 'traefik.http.routers.traefik.tls.domains[0].main=<WEBSITE URL>'
+      - 'traefik.http.routers.traefik.tls.domains[0].sans=*.<WEBSITE URL>'
+    command:
+      # - "--api.insecure=true"
+      - "--api.debug=true"
+      - "--api.dashboard=true"
+      - "--serversTransport.insecureSkipVerify=true"
+      # - "--log.level=DEBUG"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedByDefault=false"
+      - "--providers.docker.network=traefik_web"
+      - "--providers.docker.defaultRule=Host(`{{ normalize .Name }}.<WEBSITE URL>`)"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      # letsencrypt
+      # Uncomment the line to use Let's Encrypt's staging server (for prod)
+      # - "--certificatesresolvers.le.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.le.acme.dnschallenge=true"
+      - "--certificatesresolvers.le.acme.httpChallenge=false"
+      - "--certificatesresolvers.le.acme.tlsChallenge=false"
+      - "--certificatesresolvers.le.acme.dnschallenge.provider=route53"
+      - "--certificatesresolvers.le.acme.email=<MY EMAIL ADDRESS>"
+      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.le.acme.httpChallenge.entryPoint=web"
+
+    volumes:
+      # So that Traefik can listen to the Docker events
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+
+
+# sudo docker network create proxy
+networks:
+  web:
+    name: traefik_web
+    driver: overlay
+    attachable: true

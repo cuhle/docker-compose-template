@@ -1,0 +1,20 @@
+# version: "3.7"
+services:
+  custom_fastapi_app:
+    image: custom_fastapi_app:latest
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.custom_fastapi_app.rule=Host(`<WEBSITE URL>`) && PathPrefix(`/<ROUTE TO SERVICE>`)"
+      - "traefik.http.routers.custom_fastapi_app.tls=true"
+    networks:
+      - web
+    env_file:
+      - .env
+    restart: "${DOCKER_RESTART_POLICY:-unless-stopped}"
+    expose:
+      - 5000
+
+networks:
+  web:
+    name: traefik_web
+    external: true
